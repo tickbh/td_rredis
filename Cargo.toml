@@ -1,0 +1,15 @@
+[package]
+name = "td_rredis"
+version = "0.1.0"
+authors = ["wgd <wgd@qq.com>"]
+
+
+[features]
+#   no  features    by  default
+default = []
+default_redis = []
+
+[dependencies]
+url = "0.5.4"
+sha1 = "0.1.1"
+
