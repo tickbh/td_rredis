@@ -534,7 +534,7 @@ fn test_invalid_protocol() {
 fn test_cluster() {
     let mut cluster = redis::Cluster::new();
     for i in 7000 .. 7001 {
-        cluster.add(&format!("redis://192.168.1.135:{}/", i)[..]).unwrap();    
+        cluster.add(&format!("redis://127.0.0.1:{}/", i)[..]).unwrap();
     }
 
     let _ : () = redis::cmd("set").arg("xxoo1").arg("ooxx").query_cluster(&mut cluster).unwrap();
