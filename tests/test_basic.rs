@@ -522,10 +522,21 @@ fn test_invalid_protocol() {
     let mut result: redis::RedisResult<u8>;
     // first requests returns ResponseError
     result = con.del("my_zset");
-    assert_eq!(result.unwrap_err().kind(), redis::ErrorKind::ResponseError);
+    assert_eq!(result.unwrap_err().kind(), redis::ErrorKind::PatternError);
     // from now on it's IoError due to the closed connection
     result = con.del("my_zset");
     assert_eq!(result.unwrap_err().kind(), redis::ErrorKind::IoError);
 
     child.join().unwrap().unwrap();
+}
+
+#[test]
+fn test_cluster() {
+    let mut cluster = redis::Cluster::new();
+    for i in 7000 .. 7001 {
+        cluster.add(&format!("redis://192.168.1.135:{}/", i)[..]).unwrap();    
+    }
+
+    let _ : () = redis::cmd("set").arg("xxoo1").arg("ooxx").query_cluster(&mut cluster).unwrap();
+    assert_eq!(redis::cmd("get").arg("xxoo1").query_cluster(&mut cluster), Ok("ooxx".to_string()));
 }
