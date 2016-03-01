@@ -1,8 +1,8 @@
 # redis-rs
 
-td_rredis is a high level redis library for Rust.  It provides convenient access
-to all Redis functionality through a very flexible but low-level API.  It
-uses a customizable type conversion trait so that any operation can return
+td_rredis is a high level redis library and support cluster for Rust.
+It provides convenient access to all Redis functionality through a very flexible but low-level API. 
+It uses a customizable type conversion trait so that any operation can return
 results in just the type you are expecting.  This makes for a very pleasant
 development experience. if you redis in cluster, it will auto find new server,
 and get the data right in the server.
