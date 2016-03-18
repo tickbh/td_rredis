@@ -19,6 +19,8 @@ pub enum NumericBehavior {
 /// An enum of all error kinds.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum ErrorKind {
+    /// don't have the connect
+    NoConnectError,
     /// The server occup can't recover error
     PatternError,
     /// The server generated an invalid response.
@@ -260,6 +262,7 @@ impl RedisError {
     pub fn category(&self) -> &str {
         match self.kind() {
             ErrorKind::PatternError => "pattern error",
+            ErrorKind::NoConnectError => "no connect error",
             ErrorKind::ResponseError => "response error",
             ErrorKind::AuthenticationFailed => "authentication failed",
             ErrorKind::TypeError => "type error",
@@ -321,6 +324,10 @@ pub fn make_extension_error(code: &str, detail: Option<&str>) -> RedisError {
             None => "Unknown extension error encountered".to_string()
         })
     }
+}
+
+pub fn no_connection_error() -> RedisError {
+    RedisError { repr: ErrorRepr::WithDescription(ErrorKind::NoConnectError, "no connection") }
 }
 
 

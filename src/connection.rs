@@ -28,7 +28,8 @@ pub struct ConnectionInfo {
 /// Represents a stateful redis TCP connection.
 pub struct Connection {
     con: RefCell<BufReader<TcpStream>>,
-    db: i64,
+    db : i64,
+    work : RefCell<bool>,
 }
 
 /// Represents a pubsub connection.
@@ -89,7 +90,7 @@ pub fn into_connection_info(info : &str) -> RedisResult<ConnectionInfo> {
 
 pub fn connect(connection_info: &ConnectionInfo) -> RedisResult<Connection> {
     let con = try!(Connection::new(&connection_info));
-    let mut rv = Connection { con: RefCell::new(con), db: connection_info.db };
+    let mut rv = Connection { con: RefCell::new(con), db: connection_info.db, work : RefCell::new(true) };
 
     match connection_info.passwd {
         Some(ref passwd) => {
@@ -144,10 +145,15 @@ impl Connection {
         match result {
             Err(ref e) if e.kind() == ErrorKind::PatternError => {
                 try!(buffer.get_mut().shutdown(net::Shutdown::Both));
+                *self.work.borrow_mut() = false;
             }
             _ => ()
         }
         result
+    }
+
+    pub fn is_work(&self) -> bool {
+        *self.work.borrow()
     }
 }
 
@@ -267,6 +273,10 @@ impl PubSub {
         let _ : () = try!(cmd("PUNSUBSCRIBE").arg(&*chan).query(&self.con));
         self.pchannels.remove(&chan);
         Ok(())
+    }
+
+    pub fn is_work(&self) -> bool {
+        self.con.is_work()
     }
 
     /// Fetches the next message from the pubsub connection.  Blocks until

@@ -64,4 +64,6 @@ pub use types::{
 
     /* utility functions */
     from_redis_value,
+    no_connection_error,
+    make_extension_error,
 };

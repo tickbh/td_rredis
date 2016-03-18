@@ -50,7 +50,11 @@ impl Cluster {
             }
         };
         if self.conns.contains_key(addr) {
-            return Ok(self.conns.get(addr).unwrap());
+            if !self.conns.get(addr).unwrap().is_work() {
+                self.conns.remove(addr);
+            } else {
+                return Ok(self.conns.get(addr).unwrap());    
+            }
         }
         let info = unwrap_or!(self.addrs.get(addr), fail!((ErrorKind::InvalidClientConfig, "not addr exist")));
         let connection = try!(connect(&info));
