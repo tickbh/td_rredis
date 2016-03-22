@@ -32,6 +32,9 @@ impl Cluster {
     ///
     /// Note that redis' pubsub operates across all databases.
     pub fn get_pubsub(&self) -> RedisResult<PubSub> {
+        if self.addrs.len() == 0 {
+            fail!((ErrorKind::InvalidClientConfig, "not addr exist"));
+        }
         let (_, info) = self.addrs.iter().next().unwrap();
         Ok(try!(connect_pubsub(info)))
     }
