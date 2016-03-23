@@ -26,6 +26,7 @@ pub struct ConnectionInfo {
 }
 
 /// Represents a stateful redis TCP connection.
+#[derive(Debug)]
 pub struct Connection {
     con: RefCell<BufReader<TcpStream>>,
     db : i64,
@@ -33,10 +34,11 @@ pub struct Connection {
 }
 
 /// Represents a pubsub connection.
+#[derive(Debug)]
 pub struct PubSub {
     con: Connection,
-    channels: HashSet<Vec<u8>>,
-    pchannels: HashSet<Vec<u8>>,
+    channels: HashSet<String>,
+    pchannels: HashSet<String>,
 }
 
 /// Represents a pubsub message.
@@ -152,6 +154,22 @@ impl Connection {
         result
     }
 
+    pub fn get_connection_fd(&self) -> i32 {
+        #[cfg(unix)] use std::os::unix::prelude::*;
+        #[cfg(windows)] use std::os::windows::prelude::*;
+        #[cfg(windows)]
+        fn get_fd(tcp : &TcpStream) -> i32 {
+            tcp.as_raw_socket() as i32
+        }
+        #[cfg(unix)]
+        fn get_fd(tcp : &TcpStream) -> i32 {
+            tcp.as_raw_fd() as i32
+        }
+        let buffer = self.con.borrow();
+        let tcp = buffer.get_ref();
+        get_fd(tcp)
+    }
+
     pub fn is_work(&self) -> bool {
         *self.work.borrow()
     }
@@ -235,48 +253,81 @@ impl ConnectionLike for Connection {
 /// ```
 impl PubSub {
 
-    fn get_channel<T: ToRedisArgs>(&mut self, channel: &T) -> Vec<u8> {
-        let mut chan = vec![];
-        for item in channel.to_redis_args().iter() {
-            chan.extend(item.iter().cloned());
-        }
-        chan
+    /// Subscribes to a new channel.
+    pub fn subscribe(&mut self, channel: String) -> RedisResult<()> {
+        self.subscribes(vec![channel])
     }
 
-    /// Subscribes to a new channel.
-    pub fn subscribe<T: ToRedisArgs>(&mut self, channel: T) -> RedisResult<()> {
-        let chan = self.get_channel(&channel);
-        let _ : () = try!(cmd("SUBSCRIBE").arg(&*chan).query(&self.con));
-        self.channels.insert(chan);
+    pub fn subscribes(&mut self, channels : Vec<String>) -> RedisResult<()> {
+        let mut cmd = cmd("SUBSCRIBE");
+        for channel in &channels {
+            cmd.arg(&**channel);
+        }
+        let _ : () = try!(cmd.query(&self.con));
+        self.channels.extend(channels);
         Ok(())
     }
 
     /// Subscribes to a new channel with a pattern.
-    pub fn psubscribe<T: ToRedisArgs>(&mut self, pchannel: T) -> RedisResult<()> {
-        let chan = self.get_channel(&pchannel);
-        let _ : () = try!(cmd("PSUBSCRIBE").arg(&*chan).query(&self.con));
-        self.pchannels.insert(chan);
+    pub fn psubscribe(&mut self, channel: String) -> RedisResult<()> {
+        self.psubscribes(vec![channel])
+    }
+
+    /// Subscribes to a new channel with a pattern.
+    pub fn psubscribes(&mut self, channels: Vec<String>) -> RedisResult<()> {
+        let mut cmd = cmd("PSUBSCRIBE");
+        for channel in &channels {
+            cmd.arg(&**channel);
+        }
+        let _ : () = try!(cmd.query(&self.con));
+        self.pchannels.extend(channels);
         Ok(())
     }
 
     /// Unsubscribes from a channel.
-    pub fn unsubscribe<T: ToRedisArgs>(&mut self, channel: T) -> RedisResult<()> {
-        let chan = self.get_channel(&channel);
-        let _ : () = try!(cmd("UNSUBSCRIBE").arg(&*chan).query(&self.con));
-        self.channels.remove(&chan);
+    pub fn unsubscribe(&mut self, channel: String) -> RedisResult<()> {
+        self.unsubscribes(vec![channel])
+    }
+
+    /// Unsubscribes from a channel.
+    pub fn unsubscribes(&mut self, channels: Vec<String>) -> RedisResult<()> {
+        
+        let mut cmd = cmd("UNSUBSCRIBE");
+        for channel in &channels {
+            cmd.arg(&**channel);
+        }
+        let _ : () = try!(cmd.query(&self.con));
+        for channel in channels {
+            self.channels.remove(&channel);
+        }
         Ok(())
     }
 
-    /// Unsubscribes from a channel with a pattern.
-    pub fn punsubscribe<T: ToRedisArgs>(&mut self, pchannel: T) -> RedisResult<()> {
-        let chan = self.get_channel(&pchannel);
-        let _ : () = try!(cmd("PUNSUBSCRIBE").arg(&*chan).query(&self.con));
-        self.pchannels.remove(&chan);
+    /// Unsubscribes from a channel.
+    pub fn punsubscribe(&mut self, channel: String) -> RedisResult<()> {
+        self.punsubscribes(vec![channel])
+    }
+
+    /// Unsubscribes from a channel.
+    pub fn punsubscribes(&mut self, channels: Vec<String>) -> RedisResult<()> {
+        
+        let mut cmd = cmd("PUNSUBSCRIBE");
+        for channel in &channels {
+            cmd.arg(&**channel);
+        }
+        let _ : () = try!(cmd.query(&self.con));
+        for channel in channels {
+            self.pchannels.remove(&channel);
+        }
         Ok(())
     }
 
     pub fn is_work(&self) -> bool {
         self.con.is_work()
+    }
+
+    pub fn get_connection_fd(&self) -> i32 {
+        self.con.get_connection_fd()
     }
 
     /// Fetches the next message from the pubsub connection.  Blocks until
