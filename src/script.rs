@@ -1,3 +1,6 @@
+use std::io::prelude::*;
+use std::fs::File;
+
 use sha1::Sha1;
 
 use cmd::cmd;
@@ -8,6 +11,7 @@ use connection::ConnectionLike;
 pub struct Script {
     code: String,
     hash: String,
+    path: String,
 }
 
 /// The script object represents a lua script that can be executed on the
@@ -34,15 +38,40 @@ impl Script {
         Script {
             code: code.to_string(),
             hash: hash.hexdigest(),
+            path: String::new(),
         }
     }
 
     pub fn new_hash(hash: &str) -> Script {
         Script {
-            code: "".to_string(),
+            code: String::new(),
             hash: hash.to_string(),
+            path: String::new(),
         }
     }
+
+    pub fn new_path_hash(path : &str, hash: &str) -> RedisResult<Script> {
+        if hash.len() == 0 {
+            let mut f = try!(File::open(path));
+            let mut code = String::new();
+            try!(f.read_to_string(&mut code));
+
+            let mut hash = Sha1::new();
+            hash.update(code.as_bytes());
+            Ok(Script {
+                code: code,
+                hash: hash.hexdigest(),
+                path: String::new(),
+            })
+        } else {
+            Ok(Script {
+                code: String::new(),
+                hash: hash.to_string(),
+                path: path.to_string(),
+            })
+        }
+    }
+
 
     /// Returns the script's SHA1 hash in hexadecimal format.
     pub fn get_hash(&self) -> &str {
@@ -130,10 +159,21 @@ impl<'a> ScriptInvocation<'a> {
                 Err(err) => {
                     //May only has hash but not code
                     if err.kind() == ErrorKind::NoScriptError && self.script.code.len() > 0 {
-                        let _ : () = try!(cmd("SCRIPT")
+                        let hash : String = try!(cmd("SCRIPT")
                             .arg("LOAD")
                             .arg(self.script.code.as_bytes())
                             .query(con));
+                        ensure!(self.script.hash == hash, fail!((ErrorKind::BusyLoadingError, "load hash error")));
+                    } else if err.kind() == ErrorKind::NoScriptError && self.script.path.len() > 0 {
+                        let mut f = try!(File::open(&*self.script.path));
+                        let mut code = String::new();
+                        try!(f.read_to_string(&mut code));
+
+                        let hash : String = try!(cmd("SCRIPT")
+                            .arg("LOAD")
+                            .arg(code.as_bytes())
+                            .query(con));
+                        ensure!(self.script.hash == hash, fail!((ErrorKind::BusyLoadingError, "load hash error")));
                     } else {
                         fail!(err);
                     }
