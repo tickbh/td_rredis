@@ -42,6 +42,7 @@ pub use cmd::{cmd, Cmd, pipe, Pipeline, Iter, pack_command};
 pub use commands::{Commands, PipelineCommands};
 pub use script::{Script, ScriptInvocation};
 pub use cluster::Cluster;
+pub use slot::key_hash_slot;
 #[doc(hidden)]
 pub use types::{
     /* low level values */

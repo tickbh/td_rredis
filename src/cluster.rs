@@ -2,6 +2,7 @@ use connection::{ConnectionInfo, Connection, connect, into_connection_info, PubS
 use types::{RedisResult, ErrorKind, FromRedisValue};
 use std::collections::{HashMap};
 use cmd::{Cmd, Pipeline};
+use slot::key_hash_slot;
 
 pub struct Cluster {
     addrs : HashMap<String, ConnectionInfo>,
@@ -77,6 +78,10 @@ impl Cluster {
         connection.db = 0;
         self.addrs.insert(addr, connection);
         Ok(())
+    }
+
+    pub fn get_connection_by_name(&mut self, slot : String) -> RedisResult<&Connection> {
+        self.get_connection_by_slot(key_hash_slot(slot.as_bytes()))
     }
 
     pub fn get_connection_by_slot(&mut self, slot : u16) -> RedisResult<&Connection> {
