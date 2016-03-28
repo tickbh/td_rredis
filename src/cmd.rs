@@ -269,7 +269,7 @@ impl Cmd {
     }
 
     pub fn get_slot(&self) -> u16 {
-        if self.args.len() > 0 {
+        if self.args.len() > 1 {
             return match self.args[1] {
                 Arg::Cursor => 0,
                 Arg::Simple(ref val) => key_hash_slot(val),
