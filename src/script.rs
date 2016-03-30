@@ -8,6 +8,7 @@ use types::{ToRedisArgs, FromRedisValue, RedisResult, ErrorKind};
 use connection::ConnectionLike;
 
 /// Represents a lua script.
+#[derive(Debug)]
 pub struct Script {
     code: String,
     hash: String,
