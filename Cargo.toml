@@ -1,6 +1,13 @@
 [package]
 name = "td_rredis"
 version = "0.1.0"
+authors = [ "tickbh <tickdream125@hotmail.com>" ]
+
+description = "redis wrapper for Rust"
+repository = "https://github.com/tickbh/td_rredis"
+readme = "README.md"
+license = "MIT/Apache-2.0"
+keywords = ["redis", "cluster"]
 authors = ["wgd <wgd@qq.com>"]
 
 [dependencies]
