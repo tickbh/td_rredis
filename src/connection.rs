@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use url;
 
 use types::{RedisResult, Value, ToRedisArgs, FromRedisValue, from_redis_value, ErrorKind};
-use parser::{Parser};
+use parser::Parser;
 use cmd::{cmd, pipe, Pipeline};
 
 static DEFAULT_PORT: u16 = 6379;
@@ -29,8 +29,8 @@ pub struct ConnectionInfo {
 #[derive(Debug)]
 pub struct Connection {
     con: RefCell<BufReader<TcpStream>>,
-    db : i64,
-    work : RefCell<bool>,
+    db: i64,
+    work: RefCell<bool>,
 }
 
 /// Represents a pubsub connection.
@@ -65,25 +65,28 @@ fn parse_redis_url(input: &str) -> url::ParseResult<url::Url> {
             } else {
                 Err(url::ParseError::InvalidScheme)
             }
-        },
+        }
         Err(err) => Err(err),
     }
 }
 
 fn url_to_connection_info(url: url::Url) -> RedisResult<ConnectionInfo> {
     Ok(ConnectionInfo {
-        host: unwrap_or!(url.serialize_host(), fail!((ErrorKind::InvalidClientConfig, "Missing hostname"))),
-        port:url.port().unwrap_or(DEFAULT_PORT),
+        host: unwrap_or!(url.serialize_host(),
+                         fail!((ErrorKind::InvalidClientConfig, "Missing hostname"))),
+        port: url.port().unwrap_or(DEFAULT_PORT),
         db: match url.serialize_path().unwrap_or("".to_string()).trim_matches('/') {
             "" => 0,
-            path => unwrap_or!(path.parse::<i64>().ok(),
-                fail!((ErrorKind::InvalidClientConfig, "Invalid database number"))),
+            path => {
+                unwrap_or!(path.parse::<i64>().ok(),
+                           fail!((ErrorKind::InvalidClientConfig, "Invalid database number")))
+            }
         },
         passwd: url.password().and_then(|pw| Some(pw.to_string())),
     })
 }
 
-pub fn into_connection_info(info : &str) -> RedisResult<ConnectionInfo> {
+pub fn into_connection_info(info: &str) -> RedisResult<ConnectionInfo> {
     match parse_redis_url(info) {
         Ok(u) => url_to_connection_info(u),
         Err(_) => fail!((ErrorKind::InvalidClientConfig, "Redis URL did not parse")),
@@ -92,27 +95,37 @@ pub fn into_connection_info(info : &str) -> RedisResult<ConnectionInfo> {
 
 pub fn connect(connection_info: &ConnectionInfo) -> RedisResult<Connection> {
     let con = try!(Connection::new(&connection_info));
-    let mut rv = Connection { con: RefCell::new(con), db: connection_info.db, work : RefCell::new(true) };
+    let mut rv = Connection {
+        con: RefCell::new(con),
+        db: connection_info.db,
+        work: RefCell::new(true),
+    };
 
     match connection_info.passwd {
         Some(ref passwd) => {
             match cmd("AUTH").arg(&**passwd).query::<Value>(&mut rv) {
                 Ok(Value::Okay) => {}
                 Err(err) => {
-                    if err.kind() != ErrorKind::ResponseError || err.extension_error_detail().unwrap_or("").find("but no password is set").is_none() {
+                    if err.kind() != ErrorKind::ResponseError ||
+                       err.extension_error_detail()
+                          .unwrap_or("")
+                          .find("but no password is set")
+                          .is_none() {
                         fail!((ErrorKind::AuthenticationFailed, "Password authentication failed"));
                     }
                 }
-                _ => { fail!((ErrorKind::AuthenticationFailed, "Password authentication failed")); }
+                _ => {
+                    fail!((ErrorKind::AuthenticationFailed, "Password authentication failed"));
+                }
             }
-        },
-        None => {},
+        }
+        None => {}
     }
-    
+
     if connection_info.db != 0 {
         match cmd("SELECT").arg(connection_info.db).query::<Value>(&mut rv) {
             Ok(Value::Okay) => {}
-            _ => fail!((ErrorKind::ResponseError, "Redis server refused to switch database"))
+            _ => fail!((ErrorKind::ResponseError, "Redis server refused to switch database")),
         }
     }
 
@@ -149,20 +162,22 @@ impl Connection {
                 try!(buffer.get_mut().shutdown(net::Shutdown::Both));
                 *self.work.borrow_mut() = false;
             }
-            _ => ()
+            _ => (),
         }
         result
     }
 
     pub fn get_connection_fd(&self) -> i32 {
-        #[cfg(unix)] use std::os::unix::prelude::*;
-        #[cfg(windows)] use std::os::windows::prelude::*;
+        #[cfg(unix)]
+        use std::os::unix::prelude::*;
         #[cfg(windows)]
-        fn get_fd(tcp : &TcpStream) -> i32 {
+        use std::os::windows::prelude::*;
+        #[cfg(windows)]
+        fn get_fd(tcp: &TcpStream) -> i32 {
             tcp.as_raw_socket() as i32
         }
         #[cfg(unix)]
-        fn get_fd(tcp : &TcpStream) -> i32 {
+        fn get_fd(tcp: &TcpStream) -> i32 {
             tcp.as_raw_fd() as i32
         }
         let buffer = self.con.borrow();
@@ -186,7 +201,6 @@ impl Connection {
 /// state of the TCP connection.  This is not possible with `ConnectionLike`
 /// implementors because that functionality is not exposed.
 pub trait ConnectionLike {
-
     /// Sends an already encoded (packed) command into the TCP socket and
     /// reads the single response from it.
     fn req_packed_command(&self, cmd: &[u8]) -> RedisResult<Value>;
@@ -194,8 +208,11 @@ pub trait ConnectionLike {
     /// Sends multiple already encoded (packed) command into the TCP socket
     /// and reads `count` responses from it.  This is used to implement
     /// pipelining.
-    fn req_packed_commands(&self, cmd: &[u8],
-        offset: usize, count: usize) -> RedisResult<Vec<Value>>;
+    fn req_packed_commands(&self,
+                           cmd: &[u8],
+                           offset: usize,
+                           count: usize)
+                           -> RedisResult<Vec<Value>>;
 
     /// Returns the database this connection is bound to.  Note that this
     /// information might be unreliable because it's initially cached and
@@ -207,13 +224,16 @@ pub trait ConnectionLike {
 
 
 impl ConnectionLike for Connection {
-
     fn req_packed_command(&self, cmd: &[u8]) -> RedisResult<Value> {
         try!(self.send_bytes(cmd));
         self.read_response()
     }
 
-    fn req_packed_commands(&self, cmd: &[u8], offset: usize, count: usize) -> RedisResult<Vec<Value>> {
+    fn req_packed_commands(&self,
+                           cmd: &[u8],
+                           offset: usize,
+                           count: usize)
+                           -> RedisResult<Vec<Value>> {
         try!(self.send_bytes(cmd));
         let mut rv = vec![];
         for idx in 0..(offset + count) {
@@ -252,18 +272,17 @@ impl ConnectionLike for Connection {
 /// # }
 /// ```
 impl PubSub {
-
     /// Subscribes to a new channel.
     pub fn subscribe(&mut self, channel: String) -> RedisResult<()> {
         self.subscribes(vec![channel])
     }
 
-    pub fn subscribes(&mut self, channels : Vec<String>) -> RedisResult<()> {
+    pub fn subscribes(&mut self, channels: Vec<String>) -> RedisResult<()> {
         let mut cmd = cmd("SUBSCRIBE");
         for channel in &channels {
             cmd.arg(&**channel);
         }
-        let _ : () = try!(cmd.query(&self.con));
+        let _: () = try!(cmd.query(&self.con));
         self.channels.extend(channels);
         Ok(())
     }
@@ -279,7 +298,7 @@ impl PubSub {
         for channel in &channels {
             cmd.arg(&**channel);
         }
-        let _ : () = try!(cmd.query(&self.con));
+        let _: () = try!(cmd.query(&self.con));
         self.pchannels.extend(channels);
         Ok(())
     }
@@ -291,12 +310,12 @@ impl PubSub {
 
     /// Unsubscribes from a channel.
     pub fn unsubscribes(&mut self, channels: Vec<String>) -> RedisResult<()> {
-        
+
         let mut cmd = cmd("UNSUBSCRIBE");
         for channel in &channels {
             cmd.arg(&**channel);
         }
-        let _ : () = try!(cmd.query(&self.con));
+        let _: () = try!(cmd.query(&self.con));
         for channel in channels {
             self.channels.remove(&channel);
         }
@@ -310,12 +329,12 @@ impl PubSub {
 
     /// Unsubscribes from a channel.
     pub fn punsubscribes(&mut self, channels: Vec<String>) -> RedisResult<()> {
-        
+
         let mut cmd = cmd("PUNSUBSCRIBE");
         for channel in &channels {
             cmd.arg(&**channel);
         }
-        let _ : () = try!(cmd.query(&self.con));
+        let _: () = try!(cmd.query(&self.con));
         for channel in channels {
             self.pchannels.remove(&channel);
         }
@@ -338,9 +357,9 @@ impl PubSub {
     /// appropriate type through the helper methods on it.
     pub fn get_message(&self) -> RedisResult<Msg> {
         loop {
-            let raw_msg : Vec<Value> = try!(from_redis_value(&try!(self.con.read_response())));
+            let raw_msg: Vec<Value> = try!(from_redis_value(&try!(self.con.read_response())));
             let mut iter = raw_msg.into_iter();
-            let msg_type : String = try!(from_redis_value(&unwrap_or!(iter.next(), continue)));
+            let msg_type: String = try!(from_redis_value(&unwrap_or!(iter.next(), continue)));
             let mut pattern = None;
             let payload;
             let channel;
@@ -360,7 +379,7 @@ impl PubSub {
                 payload: payload,
                 channel: channel,
                 pattern: pattern,
-            })
+            });
         }
     }
 }
@@ -369,7 +388,6 @@ impl PubSub {
 /// This holds the data that comes from listening to a pubsub
 /// connection.  It only contains actual message data.
 impl Msg {
-
     /// Returns the channel this message came on.
     pub fn get_channel<T: FromRedisValue>(&self) -> RedisResult<T> {
         from_redis_value(&self.channel)
@@ -382,7 +400,7 @@ impl Msg {
     pub fn get_channel_name(&self) -> &str {
         match self.channel {
             Value::Data(ref bytes) => from_utf8(bytes).unwrap_or("?"),
-            _ => "?"
+            _ => "?",
         }
     }
 
@@ -397,7 +415,7 @@ impl Msg {
     pub fn get_payload_bytes(&self) -> &[u8] {
         match self.channel {
             Value::Data(ref bytes) => bytes,
-            _ => b""
+            _ => b"",
         }
     }
 
@@ -451,19 +469,26 @@ impl Msg {
 /// println!("The incremented number is: {}", new_val);
 /// # Ok(()) }
 /// ```
-pub fn transaction<K: ToRedisArgs, T: FromRedisValue, F: FnMut(&mut Pipeline) -> RedisResult<Option<T>>>
-    (con: &Connection, keys: &[K], func: F) -> RedisResult<T> {
+pub fn transaction<K: ToRedisArgs,
+                   T: FromRedisValue,
+                   F: FnMut(&mut Pipeline) -> RedisResult<Option<T>>>
+    (con: &Connection,
+     keys: &[K],
+     func: F)
+     -> RedisResult<T> {
     let mut func = func;
     loop {
-        let _ : () = try!(cmd("WATCH").arg(keys).query(con));
+        let _: () = try!(cmd("WATCH").arg(keys).query(con));
         let mut p = pipe();
-        let response : Option<T> = try!(func(p.atomic()));
+        let response: Option<T> = try!(func(p.atomic()));
         match response {
-            None => { continue; }
+            None => {
+                continue;
+            }
             Some(response) => {
                 // make sure no watch is left in the connection, even if
                 // someone forgot to use the pipeline.
-                let _ : () = try!(cmd("UNWATCH").query(con));
+                let _: () = try!(cmd("UNWATCH").query(con));
                 return Ok(response);
             }
         }

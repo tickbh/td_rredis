@@ -31,7 +31,6 @@ pub struct Script {
 /// assert_eq!(result, Ok(3));
 /// ```
 impl Script {
-
     /// Creates a new script object.
     pub fn new(code: &str) -> Script {
         let mut hash = Sha1::new();
@@ -51,7 +50,7 @@ impl Script {
         }
     }
 
-    pub fn new_path_hash(path : &str, hash: &str) -> RedisResult<Script> {
+    pub fn new_path_hash(path: &str, hash: &str) -> RedisResult<Script> {
         if hash.len() == 0 {
             let mut f = try!(File::open(path));
             let mut code = String::new();
@@ -104,7 +103,11 @@ impl Script {
     /// not change.  Normally you can use `arg` and `key` directly.
     #[inline]
     pub fn prepare_invoke(&self) -> ScriptInvocation {
-        ScriptInvocation { script: self, args: vec![], keys: vec![] }
+        ScriptInvocation {
+            script: self,
+            args: vec![],
+            keys: vec![],
+        }
     }
 
     /// Invokes the script directly without arguments.
@@ -114,7 +117,8 @@ impl Script {
             script: self,
             args: vec![],
             keys: vec![],
-        }.invoke(con)
+        }
+        .invoke(con)
     }
 }
 
@@ -130,7 +134,6 @@ pub struct ScriptInvocation<'a> {
 /// the `ScriptInvocation` holds the arguments that should be invoked until
 /// it's sent to the server.
 impl<'a> ScriptInvocation<'a> {
-
     /// Adds a regular argument to the invocation.  This ends up as `ARGV[i]`
     /// in the script.
     #[inline]
@@ -152,29 +155,34 @@ impl<'a> ScriptInvocation<'a> {
     pub fn invoke<T: FromRedisValue>(&self, con: &ConnectionLike) -> RedisResult<T> {
         loop {
             match cmd("EVALSHA")
-                .arg(self.script.hash.as_bytes())
-                .arg(self.keys.len())
-                .arg(&*self.keys)
-                .arg(&*self.args).query(con) {
-                Ok(val) => { return Ok(val); }
+                      .arg(self.script.hash.as_bytes())
+                      .arg(self.keys.len())
+                      .arg(&*self.keys)
+                      .arg(&*self.args)
+                      .query(con) {
+                Ok(val) => {
+                    return Ok(val);
+                }
                 Err(err) => {
-                    //May only has hash but not code
+                    // May only has hash but not code
                     if err.kind() == ErrorKind::NoScriptError && self.script.code.len() > 0 {
-                        let hash : String = try!(cmd("SCRIPT")
-                            .arg("LOAD")
-                            .arg(self.script.code.as_bytes())
-                            .query(con));
-                        ensure!(self.script.hash == hash, fail!((ErrorKind::BusyLoadingError, "load hash error")));
+                        let hash: String = try!(cmd("SCRIPT")
+                                                    .arg("LOAD")
+                                                    .arg(self.script.code.as_bytes())
+                                                    .query(con));
+                        ensure!(self.script.hash == hash,
+                                fail!((ErrorKind::BusyLoadingError, "load hash error")));
                     } else if err.kind() == ErrorKind::NoScriptError && self.script.path.len() > 0 {
                         let mut f = try!(File::open(&*self.script.path));
                         let mut code = String::new();
                         try!(f.read_to_string(&mut code));
 
-                        let hash : String = try!(cmd("SCRIPT")
-                            .arg("LOAD")
-                            .arg(code.as_bytes())
-                            .query(con));
-                        ensure!(self.script.hash == hash, fail!((ErrorKind::BusyLoadingError, "load hash error")));
+                        let hash: String = try!(cmd("SCRIPT")
+                                                    .arg("LOAD")
+                                                    .arg(code.as_bytes())
+                                                    .query(con));
+                        ensure!(self.script.hash == hash,
+                                fail!((ErrorKind::BusyLoadingError, "load hash error")));
                     } else {
                         fail!(err);
                     }
