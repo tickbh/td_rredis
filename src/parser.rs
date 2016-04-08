@@ -13,7 +13,6 @@ pub struct Parser<T> {
 /// the client but in some more complex situations it might be useful to be
 /// able to parse the redis responses.
 impl<'a, T: Read> Parser<T> {
-
     /// Creates a new parser that parses the data behind the reader.  More
     /// than one value can be behind the reader in which case the parser can
     /// be invoked multiple times.  In other words: the stream does not have
@@ -22,7 +21,7 @@ impl<'a, T: Read> Parser<T> {
         Parser { reader: reader }
     }
 
-    /* public api */
+    // public api
 
     /// parses a single value out of the stream.  If there are multiple
     /// values you can call this multiple times.  If the reader is not yet
@@ -39,7 +38,7 @@ impl<'a, T: Read> Parser<T> {
         }
     }
 
-    /* internal helpers */
+    // internal helpers
 
     #[inline]
     fn expect_char(&mut self, refchar: char) -> RedisResult<()> {
@@ -67,8 +66,8 @@ impl<'a, T: Read> Parser<T> {
                 '\r' => {
                     try!(self.expect_char('\n'));
                     break;
-                },
-                _ => { rv.push(b) }
+                }
+                _ => rv.push(b),
             };
         }
 
@@ -77,9 +76,7 @@ impl<'a, T: Read> Parser<T> {
 
     fn read_string_line(&mut self) -> RedisResult<String> {
         match String::from_utf8(try!(self.read_line())) {
-            Err(_) => {
-                fail!((ErrorKind::PatternError, "Expected valid string, got garbage"))
-            }
+            Err(_) => fail!((ErrorKind::PatternError, "Expected valid string, got garbage")),
             Ok(value) => Ok(value),
         }
     }
@@ -104,14 +101,11 @@ impl<'a, T: Read> Parser<T> {
                 self.reader.read(buf)
             };
             match res_nread {
-                Ok(nread) if nread > 0 =>
-                    i += nread,
-                Ok(_) =>
-                    return fail!((ErrorKind::PatternError, "Could not read enough bytes")),
-                Err(e) =>
-                    return Err(From::from(e))
+                Ok(nread) if nread > 0 => i += nread,
+                Ok(_) => return fail!((ErrorKind::PatternError, "Could not read enough bytes")),
+                Err(e) => return Err(From::from(e)),
             }
-        };
+        }
         Ok(rv)
     }
 
@@ -119,7 +113,7 @@ impl<'a, T: Read> Parser<T> {
         let line = try!(self.read_string_line());
         match line.trim().parse::<i64>() {
             Err(_) => fail!((ErrorKind::PatternError, "Expected integer, got garbage")),
-            Ok(value) => Ok(value)
+            Ok(value) => Ok(value),
         }
     }
 
@@ -170,11 +164,13 @@ impl<'a, T: Read> Parser<T> {
             "EXECABORT" => ErrorKind::ExecAbortError,
             "LOADING" => ErrorKind::BusyLoadingError,
             "NOSCRIPT" => ErrorKind::NoScriptError,
-            code => { fail!(make_extension_error(code, pieces.next())); }
+            code => {
+                fail!(make_extension_error(code, pieces.next()));
+            }
         };
         match pieces.next() {
             Some(detail) => fail!((kind, desc, detail.to_string())),
-            None => fail!((kind, desc))
+            None => fail!((kind, desc)),
         }
     }
 }

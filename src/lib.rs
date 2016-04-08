@@ -34,7 +34,7 @@ mod script;
 mod slot;
 mod cluster;
 
-/* public api */
+// public api
 pub use parser::{parse_redis_value, Parser};
 pub use client::Client;
 pub use connection::{Connection, ConnectionInfo, PubSub, Msg, transaction};
@@ -44,27 +44,8 @@ pub use script::{Script, ScriptInvocation};
 pub use cluster::Cluster;
 pub use slot::key_hash_slot;
 #[doc(hidden)]
-pub use types::{
-    /* low level values */
-    Value,
-
-    /* error and result types */
-    RedisError,
-    RedisResult,
-
-    /* error kinds */
-    ErrorKind,
-
-    /* utility types */
-    InfoDict,
-    NumericBehavior,
-
-    /* conversion traits */
-    FromRedisValue,
-    ToRedisArgs,
-
-    /* utility functions */
-    from_redis_value,
-    no_connection_error,
-    make_extension_error,
-};
+pub use types::{/* low level values */ Value, /* error and result types */ RedisError,
+                RedisResult, /* error kinds */ ErrorKind, /* utility types */ InfoDict,
+                NumericBehavior, /* conversion traits */ FromRedisValue, ToRedisArgs,
+                /* utility functions */ from_redis_value, no_connection_error,
+                make_extension_error};

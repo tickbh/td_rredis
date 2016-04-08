@@ -1,4 +1,6 @@
-# redis-rs
+# td_rredis
+
+[![Build Status](https://api.travis-ci.org/tickbh/td_rredis.svg?branch=master)](https://travis-ci.org/tickbh/td_rredis)
 
 td_rredis is a high level redis library and support cluster for Rust.
 It provides convenient access to all Redis functionality through a very flexible but low-level API. 

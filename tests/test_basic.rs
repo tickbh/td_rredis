@@ -323,7 +323,7 @@ fn test_pubsub() {
     let con = ctx.connection();
     let channel = "test_pubsub";
     let mut pubsub = ctx.pubsub();
-    pubsub.subscribe(channel).unwrap();
+    pubsub.subscribe(channel.to_string()).unwrap();
 
     let thread = spawn(move || {
         sleep(Duration::from_millis(100));

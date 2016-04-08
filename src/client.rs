@@ -1,5 +1,5 @@
 use connection::{ConnectionInfo, Connection, connect, into_connection_info, PubSub, connect_pubsub};
-use types::{RedisResult};
+use types::RedisResult;
 
 /// The client type.
 #[derive(Debug, Clone)]
@@ -24,14 +24,11 @@ pub struct Client {
 /// let con = client.get_connection().unwrap();
 /// ```
 impl Client {
-
     /// Connects to a redis server and returns a client.  This does not
     /// actually open a connection yet but it does perform some basic
     /// checks on the URL that might make the operation fail.
     pub fn open(info: &str) -> RedisResult<Client> {
-        Ok(Client {
-            connection_info: try!(into_connection_info(info))
-        })
+        Ok(Client { connection_info: try!(into_connection_info(info)) })
     }
 
     /// Instructs the client to actually connect to redis and returns a
