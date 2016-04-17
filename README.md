@@ -32,3 +32,12 @@ fn test_cluster() {
     assert_eq!(redis::cmd("get").arg("xxoo1").query_cluster(&mut cluster), Ok("ooxx".to_string()));
 }
 ```
+
+### Refer
+
+the project write refer to [redis-rs]( https://github.com/mitsuhiko/redis-rs )
+
+### Contributing
+
+Contributions are welcome!
+
