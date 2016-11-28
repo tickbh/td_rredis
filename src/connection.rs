@@ -188,6 +188,15 @@ impl Connection {
     pub fn is_work(&self) -> bool {
         *self.work.borrow()
     }
+
+    pub fn try_clone(&self) -> RedisResult<Connection> {
+        let tcp = try!(self.con.borrow().get_ref().try_clone());
+        Ok(Connection {
+            con: RefCell::new(BufReader::new(tcp)),
+            db: self.db,
+            work: RefCell::new(self.is_work()),
+        })
+    }
 }
 
 /// Implements the "stateless" part of the connection interface that is used by the
@@ -340,6 +349,14 @@ impl PubSub {
         }
         Ok(())
     }
+
+    pub fn try_clone(&self) -> RedisResult<PubSub> {
+        Ok(PubSub {
+            con: try!(self.con.try_clone()),
+            channels: self.channels.clone(),
+            pchannels: self.pchannels.clone(),
+        })
+    } 
 
     pub fn is_work(&self) -> bool {
         self.con.is_work()
