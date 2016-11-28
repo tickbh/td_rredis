@@ -10,6 +10,11 @@ use types::{RedisResult, Value, ToRedisArgs, FromRedisValue, from_redis_value, E
 use parser::Parser;
 use cmd::{cmd, pipe, Pipeline};
 
+#[cfg(unix)]
+use std::os::unix::prelude::*;
+#[cfg(windows)]
+use std::os::windows::prelude::*;
+
 static DEFAULT_PORT: u16 = 6379;
 
 /// Holds the connection information that redis should use for connecting.
@@ -141,6 +146,32 @@ pub fn connect_pubsub(connection_info: &ConnectionInfo) -> RedisResult<PubSub> {
 }
 
 impl Connection {
+    
+    #[cfg(windows)]
+    fn get_fd(tcp: &TcpStream) -> i32 {
+        tcp.as_raw_socket() as i32
+    }
+
+    #[cfg(unix)]
+    fn get_fd(tcp: &TcpStream) -> i32 {
+        tcp.as_raw_fd() as i32
+    }
+
+    #[cfg(windows)]
+    fn from_fd(fd: i32) -> TcpStream {
+        unsafe {
+            TcpStream::from_raw_socket(fd as RawSocket)
+        }
+    }
+
+    #[cfg(unix)]
+    fn from_fd(fd: i32) -> TcpStream {
+        unsafe {
+            TcpStream::from_raw_fd(fd as RawFd)
+        }
+    }
+
+
     pub fn new(addr: &ConnectionInfo) -> RedisResult<BufReader<TcpStream>> {
         let tcp = try!(TcpStream::connect((&*addr.host, addr.port)));
         Ok(BufReader::new(tcp))
@@ -168,21 +199,9 @@ impl Connection {
     }
 
     pub fn get_connection_fd(&self) -> i32 {
-        #[cfg(unix)]
-        use std::os::unix::prelude::*;
-        #[cfg(windows)]
-        use std::os::windows::prelude::*;
-        #[cfg(windows)]
-        fn get_fd(tcp: &TcpStream) -> i32 {
-            tcp.as_raw_socket() as i32
-        }
-        #[cfg(unix)]
-        fn get_fd(tcp: &TcpStream) -> i32 {
-            tcp.as_raw_fd() as i32
-        }
         let buffer = self.con.borrow();
         let tcp = buffer.get_ref();
-        get_fd(tcp)
+        Connection::get_fd(tcp)
     }
 
     pub fn is_work(&self) -> bool {
@@ -190,7 +209,7 @@ impl Connection {
     }
 
     pub fn try_clone(&self) -> RedisResult<Connection> {
-        let tcp = try!(self.con.borrow().get_ref().try_clone());
+        let tcp = Connection::from_fd(Connection::get_fd(self.con.borrow().get_ref()));
         Ok(Connection {
             con: RefCell::new(BufReader::new(tcp)),
             db: self.db,
