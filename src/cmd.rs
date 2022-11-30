@@ -4,17 +4,17 @@ use cluster::Cluster;
 use slot::key_hash_slot;
 
 #[derive(Clone)]
-enum Arg<'a> {
+enum Arg {
     Simple(Vec<u8>),
     Cursor,
-    Borrowed(&'a [u8]),
+    Borrowed(Vec<u8>),
 }
 
 
 /// Represents redis commands.
 #[derive(Clone)]
 pub struct Cmd {
-    args: Vec<Arg<'static>>,
+    args: Vec<Arg>,
     cursor: Option<u64>,
     is_ignored: bool,
 }
@@ -84,7 +84,7 @@ fn encode_command(args: &Vec<Arg>, cursor: u64) -> Vec<u8> {
             match *item {
                 Arg::Cursor => encode(cursor.to_string().as_bytes()),
                 Arg::Simple(ref val) => encode(val),
-                Arg::Borrowed(ptr) => encode(ptr),
+                Arg::Borrowed(ref ptr) => encode(ptr),
             }
         }
     }
@@ -280,7 +280,7 @@ impl Cmd {
             return match self.args[1] {
                 Arg::Cursor => 0,
                 Arg::Simple(ref val) => key_hash_slot(val),
-                Arg::Borrowed(ptr) => key_hash_slot(ptr),
+                Arg::Borrowed(ref ptr) => key_hash_slot(ptr),
             };
         }
         0
@@ -503,7 +503,7 @@ pub fn cmd<'a>(name: &'a str) -> Cmd {
 /// assert_eq!(cmd, b"*3\r\n$3\r\nSET\r\n$6\r\nmy_key\r\n$2\r\n42\r\n".to_vec());
 /// ```
 pub fn pack_command(args: &[Vec<u8>]) -> Vec<u8> {
-    encode_command(&args.iter().map(|x| Arg::Borrowed(x)).collect(), 0)
+    encode_command(&args.iter().map(|x| Arg::Borrowed(x.clone())).collect(), 0)
 }
 
 /// Shortcut for creating a new pipeline.
